@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartes mémoire — Dirigeant responsable AMF</title>
+<style>
+:root {
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --text: #172033;
+  --muted: #1858b8;
+  --accent: #1e72d1;
+  --accent2: #2a1ddd;
+  --shadow: 0 12px 35px rgba(31, 41, 55, .12);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 18px 40px;
+}
+h1 { text-align:center; margin: 0 0 8px; font-size: 28px; }
+.subtitle { text-align:center; color:var(--muted); margin-bottom:24px; }
+.counter { text-align:center; color:var(--muted); margin-bottom:18px; font-size:14px; }
+.success-panel { position: sticky; top: 0; z-index: 30; background: rgba(244,247,251,.96); backdrop-filter: blur(8px); padding: 12px 0 14px; margin: 0 0 18px; }
+.success-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; max-width:560px; margin:0 auto 8px; font-size:14px; font-weight:bold; }
+.success-percent { color:#19c909; font-size:22px; font-weight:800; }
+.success-track { max-width:560px; height:10px; margin:0 auto 7px; background:#fecaca; border-radius:999px; overflow:hidden; }
+.success-fill { height:100%; width:100%; background:#20ca4b; border-radius:999px; transition:width .25s ease; }
+.success-details { text-align:center; color:var(--muted); font-size:12px; }
+.grid { display:flex; flex-direction:column; gap:16px; }
+.card-wrap {
+  perspective: 1200px;
+  height: 190px;
+  cursor: pointer;
+}
+.card {
+  width:100%; height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  transition: transform .6s ease;
+}
+.card.flipped { transform:rotateY(180deg); }
+.face {
+  position:absolute; inset:0;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  background:var(--card);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:28px;
+  font-size:20px;
+  line-height:1.45;
+}
+.front { border-top:5px solid var(--accent); }
+.back {
+  transform:rotateY(180deg);
+  border-top:5px solid #310123;
+  font-size:18px;
+}
+.hint {
+  position:absolute; bottom:10px; left:0; right:0;
+  text-align:center; font-size:12px; color:var(--muted);
+}
+button {
+  display:block;
+  margin:30px auto 0;
+  border:0;
+  border-radius:999px;
+  padding:14px 30px;
+  background:var(--accent);
+  color:white;
+  font-size:17px;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(49,94,251,.25);
+}
+button:hover { background:var(--accent2); }
+
+.card-wrap { position: relative; }
+.card-wrap.marked .face { border: 3px solid #e53935 !important; }
+.card-wrap.marked .front { border-top: 5px solid #e53935 !important; }
+.mark-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #b71c1c;
+  background: #e53935;
+  padding: 0;
+  margin: 0;
+  z-index: 20;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,.18);
+}
+.mark-btn:hover { background: #c62828; }
+.mark-btn.marked { background: #8b0000; }
+
+/* Bulle flottante des cartes d'erreurs */
+.error-bubble {
+  position: fixed; right: 22px; bottom: 22px; z-index: 1000;
+  width: 62px; height: 62px; border-radius: 50%; margin: 0; padding: 0;
+  background: #e53935; color: #fff; border: 3px solid #fff;
+  box-shadow: 0 5px 18px rgba(0,0,0,.25); font-size: 25px;
+  display: flex; align-items: center; justify-content: center;
+}
+.error-bubble:hover { background: #c62828; }
+.error-badge {
+  position: absolute; top: -6px; right: -5px; min-width: 25px; height: 25px;
+  padding: 0 6px; border-radius: 999px; background: #172033; color: white;
+  border: 2px solid white; font-size: 13px; line-height: 21px; text-align: center;
+}
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1100;
+  background: rgba(15, 23, 42, .62); padding: 24px;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.error-modal {
+  width: min(850px, 100%); max-height: 88vh; overflow-y: auto;
+  background: var(--bg); border-radius: 18px; padding: 24px; position: relative;
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-right: 42px; }
+.modal-header h2 { margin: 0 0 18px; font-size: 22px; }
+.close-modal {
+  position: absolute; top: 12px; right: 12px; margin: 0; width: 38px; height: 38px;
+  padding: 0; border-radius: 50%; background: #e5e7eb; color: #172033; font-size: 25px;
+  box-shadow: none;
+}
+.close-modal:hover { background: #cbd5e1; }
+.error-list { display: flex; flex-direction: column; gap: 14px; }
+.error-card { position: relative; min-height: 145px; background: white; border: 2px solid #e53935;
+  border-top: 5px solid #e53935; border-radius: 14px; padding: 24px 48px 24px 20px;
+  box-shadow: var(--shadow); cursor: pointer; white-space: pre-wrap; line-height: 1.45; }
+.error-card .answer { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+.error-card.flipped .answer { display: block; }
+.unmark-btn {
+  position: absolute; top: 8px; right: 8px; margin: 0; padding: 0; width: 20px; height: 20px;
+  min-width: 20px; border-radius: 50%; border: 2px solid #0759b7; background: #1e72d1;
+  box-shadow: 0 2px 5px rgba(0,0,0,.18); z-index: 2;
+}
+.unmark-btn:hover { background: #084f9e; }
+.empty-errors { text-align: center; color: var(--muted); padding: 28px 12px; }
+@media (max-width:600px) {
+  .error-bubble { right: 14px; bottom: 14px; width: 56px; height: 56px; }
+  .modal-overlay { padding: 10px; } .error-modal { padding: 18px 12px; max-height: 92vh; }
+  .modal-header h2 { font-size: 19px; }
+}
+
+@media (max-width:600px) {
+  .card-wrap { height:220px; }
+  .face { font-size:18px; padding:22px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📚 ADM1015 Chapitres 1 à 3</h1>
+  <div class="subtitle">Clique sur une question pour voir la réponse. Reclique pour revenir à la question.</div>
+  <div class="success-panel" aria-live="polite">
+    <div class="success-heading"><span>✅ Taux de réussite</span><span id="successPercent" class="success-percent">100 %</span></div>
+    <div class="success-track" role="progressbar" aria-label="Taux de réussite" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="successFill" class="success-fill"></div></div>
+    <div id="successDetails" class="success-details">0 carte en rouge · 0 carte réussie sur 0</div>
+  </div>
+  <div class="counter"><span id="count">0</span> cartes</div>
+  <div id="cards" class="grid"></div>
+  <button id="shuffleBtn">🔀 Mélanger</button>
+</div>
+
+<button id="errorBubble" class="error-bubble" type="button" aria-label="Afficher les cartes d'erreurs" title="Afficher les cartes d'erreurs">
+  ⚑ <span id="errorBadge" class="error-badge">0</span>
+</button>
+
+<div id="errorModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="errorModalTitle">
+  <div class="error-modal">
+    <button id="closeErrorModal" class="close-modal" type="button" aria-label="Fermer">×</button>
+    <div class="modal-header"><h2 id="errorModalTitle">🔴 Mes cartes d'erreurs (<span id="modalErrorCount">0</span>)</h2></div>
+    <div id="errorCardsList" class="error-list"></div>
+  </div>
+</div>
+
+<script>
+const originalCards = [
+{
+    q: "Quelles sont les différences entre la fonction RH VS Service des RH?",
+    a: "Fonction RH=Ensemble de responsabilités d’encadrement visant les gens qui en supervisent d’autres. Ça touche les relations entre supérieurs et subordonnés. Service RH=Unité administrative spécialisée visant les professionnels RH dans les organisations ou le nombre d’employés justifie l’embauche de RH. Ça touche les relations en conseil et soutient de tous les postes au sein de l’entreprise."
+  },{
+    q: "Quelles sont les 2 catégories de professionnels RH?",
+    a: "Généralistes=Dans PME on a 0 à 100 employés dans petites entreprises, et 100 à 500 employés dans moyennes entreprises. 2) Spécialistes=Dans organisations de grandes tailles syndiquées ou secteur public ou parapublic."
+  },{
+    q: "Quelles sont les spécialisations RH des spécialistes?",
+    a: "1) Rémunération, 2) Dotation, 3) Formation, 4) Santé et sécurité au travail, 5) Relation du travails, 6) Développement organisationnel."
+  },{
+    q: "Quelles sont les 2 catégories d’autorité RH?",
+    a: "1) Autorité de conseil, 2) Autorité fonctionnelle."
+  },{
+    q: "Qu’est-ce qu’une chaîne de blocs?",
+    a: "Une terminologie de stockage et de transmission d’informations transparentes, sécurisée et fonctionnant sans organe central de contrôle."
+  },{
+    q: "Qu’est-ce que IDO?",
+    a: "Internet des objets; ensemble d’objets mis en réseau, communiquant entre eux via Internet et collectant des données à des fins diverses."
+  },{
+    q: "Qu’est-ce que PGI?",
+    a: "Progiciels en gestion intégrée."
+  },{
+    q: "Qu’est-ce que SIRH?",
+    a: "Systèmes informatisés des RH; permet d’augmenter la valeur ajoutée de la fonction RH."
+  },{
+    q: "Qu’est-ce que SAAS?",
+    a: "Progiciel en nuages appelés software as a service."
+  },{
+    q: "Pourquoi les PME vont vers les SAAS?",
+    a: "1) Moins coûteur, 2) Accès en tout temps, 3) Accès en temps réel à leur SIRH, 4) Hébergé dans des serveurs externes appartenant à l’éditeur donc pas besoin de se soucier de l’administration ni gestion du système car la responsabilité de l’entretien et mise à jour incombe au fournisseur de progiciel."
+  },{
+    q: "Qui peut utiliser le logiciel VIP?",
+    a: "Entreprises +1000 employés."
+  },{
+    q: "Quelles pourraient être des politiques favorables en matière d’employés?",
+    a: "Privilégie les candidats déjà dans l’entreprise par rapport aux autres lorsqu’il y a une ouverture de poste, - Performance des employés doit être évaluée au minimum 1x/an, et si c’est un nouvel employé 1x/sem, - Salaire des cadres basés sur leur rendement annuel."
+  },{
+    q: "Qu’est-ce que CRHA?",
+    a: "Ordre des conseillers en ressources humaines agréé."
+  },{
+    q: "Qu’est-ce que CRIA?",
+    a: "Conseiller en relations industrielles agréé."
+  },{
+    q: "Nomme des enjeux en matières de RH?",
+    a: "1) Quelles sont les responsabilités respectives des différents postes et leur positionnement en matière de GRH?, 2) L’évolution des perspectives du GRH dans le temps, 3) Différents types d’autorités que des acteurs peuvent avoir en matière de RH, 4) Les grands rôles qui jonglent avec les professionnels RH, 5) Politiques GRH leur utilité et quelles sont les règles à respecter pour qu’elles soient efficaces, 6) Les faits des études basées sur RH, 7) Administrations publiques, 8) Organisations syndiquées, 9) Phénomène de croissance des membres de l’ordre CRHA, 10) Perspectives internationales."
+  },{
+    q: "Qu'est-ce que des Administrations publiques?",
+    a: "= secteur public qui regroupent l'État, ses ministères ses organismes publics ainsi que les établissements des réseaux de l'éducation, de la santé et des services sociaux."
+  },{
+    q: "Que résulte de la planification des RH?",
+    a: "La structure prévisionnelle."
+  },{
+    q: "Comment s’adapter et quoi évaluer?",
+    a: "L’environnement externe (opportunités, menaces), planification des RH (besoins, disponibilités), facteurs internes (forces, faiblesses)"
+  },{
+    q: "Quelles sont les 3 types de stratégies d’affaires?",
+    a: "1) Domination par les coûts, 2) Innovation, 3) Qualité."
+  },{
+    q: "Nomme des risques démographiques?",
+    a: "1) Vieillissement de la population, 2) ressources naturelles, 3) fécondité, 4) migrations, 5) disponibilités des formations, 6) IA."
+  },{
+    q: "En quoi touche l’adaptation de la main-d’œuvre?",
+    a: "Pénurie de main d’œuvre, recrutement des immigrants, et besoins technologiques."
+  },{
+    q: "Nomme des exemples de stratégies pour l’adaptation de la main-d’œuvre pour un cas de fermeture d’usine?",
+    a: "Réduire les besoins RH de l’entreprise, réaffecter l’entreprise, faire licenciements et autres afin de survivre."
+  },{
+    q: "Nomme des exemples de stratégies pour l’adaptation de la main-d’œuvre pour un cas d’expension d’entreprise, (exemple cas d’Ouverture de 10 nouvelles boutiques par an en asie, donc augmente les besoins de main d’œuvre et de recrutement)?",
+    a: "S’il manque des employés et de la main d’œuvre on peut faire des transferts international. Et + de besoins technologiques."
+  },{
+    q: "Quelles sont les compétences de l’industrie 4.0?",
+    a: "1) gestion de données. 2) sécurité des données, 3) interactions humaines-machines, 4) conception d’interfaces d’utilisateurs, 5) développement de logiciels, 6) programming, 7) science de données. 8) analytique."
+  },{
+    q: "Qu’est-ce que GPEC?",
+    a: "Gestion prévisionnelle des emplois et compétences."
+  },{
+    q: "Quelles sont les méthodes de prévision dans des demandes en RH?",
+    a: "1) Méthode de prévisions basées sur le jugement des gestionnaires, 2) Méthode Delphi, 3) Méthode de l’extrapolation, 4) Méthode de la projection des tendances par indexation."
+  },{
+    q: "Qu’est-ce que la méthode Delphie?",
+    a: "Ça se fait en étapes; 1) Diviser le problème en plusieurs questions, 2) Parvenir les questions aux experts, 3) Après réception des réponses des experts on analyse le degré de convergence des réponses et synthétise l’information, 4) Reprendre la séquence en groupe jusqu’à un consensus."
+  },{
+    q: "Qu’est-ce que l’alphabétisation?",
+    a: "Beaucoup d’adultes n’ont pas une capacité de lecture suffisante pour fonctionner dans le monde actuel."
+  },{
+    q: "Qu’est-ce que le surplus qualitatif des RH?",
+    a: "Gens surqualifiés qui prennent un poste de base au sein de l’entreprise dans le but d’échelonner dans l’entreprise même si ça signifie d’avoir ce poste plus bas temporairement."
+  },{
+    q: "Nomme des facteurs d’emplois?",
+    a: "1) Retraités + flexibles et formateurs, 2) engager à l’international, 3) Robots manufacturiers pour sauver des coûts de main d’œuvre, 4) Emplois saisonniers ou à contrats au lieu, 5) Changement (réduction) des heures d’ouvertures de la boutique, 6) Gels de l’embauche, 7) Travail partagé."
+  },{
+    q: "Quels sont les délais à connaître concernant le licenciement (article 82 sur la loi sur les normes du travail)?",
+    a: "1) L’employé doit avoir travaillé minimum 6 mois, 2) Si travaillé moins d’un an = 1sem, 3) Si travaillé entre 1 à 5 ans = 2 sem, 4) Si travaillé 5 à 10 ans : 4 sem, 5) Si travaillé 10 ans +=8 sem."
+  },{
+    q: "Dans quelles situations d’exceptions l’article 82 de la loi sur les normes du travail ne s’appliqueraient pas?",
+    a: "1) Salarié ne justifi pas 3 mois de service continu, 2) contrat pour une durée déterminée, 3) entreprise déterminée expire (projet spécifique, d'un mandat précis ou d'un ouvrage déterminé pour lequel l'employé a été embauché), 4) qui a commis une faute grave résultant à mise à pieds."
+  },{
+    q: "Qu'est-ce que LNT?",
+    a: "la Loi sur les normes du travail."
+  },{
+    q: "Si l’employeur ne respecte pas la loi de l’article 84 des normes du travail, quel est l’impact?",
+    a: "Il devra donner obligatoirement au salarié une indemnité compensatoire égale à son salaire habituel sans heures supplémentaires pour la durée que l’employé a droit."
+  },{
+    q: "Nomme des options de réduction pour éviter une perte d’emploi?",
+    a: "Nombre d’heures, salaire, travail partagé, baisse de rentabilité, proposer congé sabbatique."
+  },{
+    q: "Congé de traitement différé synonyme?",
+    a: "Congé autofinancé."
+  },{
+    q: "Que signifi ''Congé autofinancé/Congé de traitement différé''?",
+    a: " L'employé accepte de recevoir un salaire réduit pendant une période de travail déterminée afin de mettre de côté la portion non versée, qui servira ensuite à financer son salaire pendant sa période de congé (ex: Salaire de 60k/an, accepte 80%x60k=48k par an pendant 4 ans et toute la 5e année il lui reste 48k n'ayant pas été payé donc elle aura 1 an de congé à 48k de revenu)."
+  },{
+    q: "Que signifi ‘’Surplus quantitatif’’?",
+    a: "« Trop de monde » (Le NOMBRE)."
+  },{
+    q: "Nomme des solutions à un surplus quantitatif?",
+    a: "Gel d'embauche, mises à pied, travail partagé, semaine réduite, retraites anticipées, réductions temporaires."
+  },{
+    q: "Nomme des solutions à un surplus qualitatif?",
+    a: "L’enrichissement des tâches, gestion participative, gestion des carrières."
+  },{
+    q: "Quelles sont les conséquences d’absence de solutions d’interventions adéquates en cas de surplus qualitatif?",
+    a: "Peut conduire à un gaspillage de potentiel humain."
+  },{
+    q: "Quelles sont les étapes du changement (conduite du changement)?",
+    a: "1) Susciter un sentiment de changement 2) réussir un groupe de travail une coalition efficace 3) formulez une vision de l'avenir 4) communiquer cette vision 5) habilités les collaborateurs à s'engager dans cette vision 6) souligner et reconnaître les succès 7) consolider les améliorations et introduire d'autres changements 8) rendre active la nouvelle façon de faire."
+  },{
+    q: "Dans les milieux syndiqués qu’est-il possible de faire dans de rares cas pour apporter une solution à un problème?",
+    a: "Il est possible de communiquer et faire un partenariat patronal syndical résultant à une entente ou une contrepartie d'un investisseur technologique créateur d'emplois le syndicat accepte un assouplissement des règles."
+  },{
+    q: "Quels sont les enjeux des milieux d'emploi?",
+    a: "1) stratégie qui mise sur l'innovation 2) stratégies qui misent sur la qualité 3) stratégies misant sur la domination par les coûts 4) facteurs de position démographique et l'âge de la population 5) évolutions démographiques des prochaines années qui influencera l'économie 6) défis d'enjeux de la relève 7) nouvelle génération Z sur le marché du travail."
+  },{
+    q: "Quels sont les avantages de l’industrie 4.0?",
+    a: "1) Technologies bon pour accrocher les générations Z, 2) libérer les gestionnaires des tâches administratives pour qu'ils puissent se concentrer sur le développement des affaires."
+  },{
+    q: "Quels sont les avantages de l'organisation du travail?",
+    a: "1) réduction de surcharge ou sous charge de travail 2) mettre en place des emplois de qualité permettant d'accroître la satisfaction au travail 3) réduire l'absentéisme et le taux de roulement 4) améliorer la quantité des produits de service 5) augmenter le rendement maintenant la fidélisation de la clientèle."
+  },{
+    q: "En matière de partage de responsabilité quels sont les rôles des professionnels en RH?",
+    a: "1)  évaluer les répercussions des transformations et définir l'accompagnement consécutif aux réorganisations en prêtant une attention particulière aux facteurs humains 2) consultez et soutenir les gestionnaires concernant les transformations du travail 3) former les cadres et employés pour qu'ils puissent s'adapter aux changements organisationnels 4) s'assurer que l'organisation du travail contribue au développement organisationnel."
+  },{
+    q: "Qui s’occupe d’offrir des emplois?",
+    a: "Dirigeants."
+  },{
+    q: "Quelles sont les catégories d'aspects importants des caractéristiques de l'emploi?",
+    a: "1) lié à la tâche (l'autonomie et l'importance de la tâche et son identité), 2) liés aux connaissances (complexité du travail résolution de problèmes et compétences), 3) liées au contexte social (rétroaction de la part des collègues interactions avec les gens externes), 4) Lié au contexte de l'emploi (conditions de travail, demande physiques)."
+  },{
+    q: "Quelle est la caractéristique de l'exemple suivant mon travail qui ne peut être fait que si les autres font le leur?",
+    a: "Interdépendance des tâches."
+  },{
+    q: "Concernant une rotation d'emploi qu'est-ce que ça permet aux employés?",
+    a: "Ça permet aux employés de passer d'un poste à un autre poste donc ils sont plus polyvalents et ça change un niveau de point de vue physique et mental."
+  },{
+    q: "Concernant l'élargissement des tâches qu'est-ce que ça permet aux employés?",
+    a: "Ça permet d'accroître la variété des tâches associées à un emploi sans toutefois déplacer l'employé d'un poste à l'autre ça ajoute à un emploi dans le but de le rendre plus intéressant."
+  },{
+    q: "Concernant L'enrichissement des tâches qu'est-ce que ça permet aux employés?",
+    a: "Ça augmente l'autonomie et les responsabilités associées à un poste, l'enrichissement repose sur l'autonomie plus élevée la responsabilité accrue dans un poste de plus grande autorité pour l'employé ça permet aussi d’accroître la partition des employés au processus décisionnel."
+  },{
+    q: "Quelles sont les différentes stratégies d'implication des employés?",
+    a: "Implication consultative et implications subsistantielles."
+  },{
+    q: "Quels sont les 3 revers des implications consultatives?",
+    a: "Parallèle (cercle de qualité), ponctuel (groupe de résolution de problèmes), et volontaire (programme de suggestions)."
+  },{
+    q: "Quels sont les 3 revers des implications substantielles?",
+    a: "Direct(travail enrichi), continue (équipes de travail autonomes) et non volontaire (Équipes de travail semi-autonomes)."
+  },{
+    q: "Qu’est-ce que l’approche Kaizer?",
+    a: "Amélioration continue, ça consiste à créer des équipes d'employés provenant de plusieurs disciplines et dont le but sera d'identifier et d'éliminer le gaspillage de ressources ou d'améliorer les processus de fabrication."
+  },{
+    q: "Quel est le rôle du professionnel des ressources humaines?",
+    a: "Faciliter le monde collaboratif en levant les obstacles à la communication en dissipant les conflits et les luttes de pouvoir en construisant la confiance la collaboration et l'engagement de tous les membres de ses équipes virtuelles et des autres titres d'équipes."
+  },{
+    q: "Qu'est-ce que l'automatisation?",
+    a: "Réduire les coûts incluant la robotisation."
+  },{
+    q: "Quelle est la différence entre emploi atypique versus emploi typique?",
+    a: "Les emplois atypiques désignent toute forme d'emploi qui s'écarte de des emplois typiques/traditionnels, que ce soit sur le plan de la durée, du lieu, du statut juridique ou de la régularité tandis que les emplois typiques représente un emploi permanent comportant un contrat de travail a durée indéterminée à temps plein avec un horaire de travail régulier."
+  },{
+    q: "Que signifi GTEC?",
+    a: "Groupe de travail sur l'économie collaborative."
+  },{
+    q: "Quels sont les 4 principes du GTEC?",
+    a: "1) ouverture 2) intérêt général 3) équité 4) efficacité."
+  },{
+    q: "Que pourrait signifier ‘’agence de placement de personnes’’?",
+    a: "Recrutement."
+  },{
+    q: "Que fait une agence de placement de personnes?",
+    a: "Elle fournit des employés aux entreprises via un service de location."
+  },{
+    q: "Quelles sont les nouvelles réglementations concernant les agences de placement de personnes?",
+    a: "1) Les travailleurs étrangers temporaires doivent obtenir un permis de travail et la cnsst peut refuser de délivrer ou renouveler le permis si une agence ne répond pas aux conditions de la loi, 2) La loi indique que l'agence de recrutement de travailleurs étrangers ne peut pas exiger que les travailleurs étrangers confient à l'agence de recrutement la garde de leurs documents personnels par exemple passeport ou permis de travail ni exiger des travailleurs étrangers leurs biens personnels d'appartement de plus l'agence de travailleurs est en rangée ne peut pas exiger des frais supplémentaires autre que ceux autorisés en vertu des programmes gouvernementaux canadiens."
+  },{
+    q: "Nomme la durée d’un permis de travail?",
+    a: "Valide 2 ans."
+  },{
+    q: "Nomme des exemples d'emplois atypiques?",
+    a: "Travailleurs autonomes sous-traitance travail en régie comme consultant à temps plein, emploi de mutualité avec plusieurs entreprises comme un concierge ou un agent de sécurité et emplois saisonniers."
+  },{
+    q: "Quels sont les types d'emplois qui ne permettent pas aux titulaires de ces postes de travailler toute l'année?",
+    a: "Pêcheurs ouvriers forestiers travailleurs agricoles employés de centres de ski et moniteur de camp jours."
+  },{
+    q: "Est-ce que les emplois saisonniers sont aussi couverts par la loi des normes du travail même si ils sont temporaires et qu'ils sont à temps plein ou temps partiel?",
+    a: "Oui ils ont donc droit aux indemnités pour les jours fériés les vacances et les congés pour des raisons familiales et parentales mais pour ces travailleurs certaines dispositions de la loi doivent s'appliquer par exemple particulièrement pour les travailleurs agricoles."
+  },{
+    q: "Quels sont les 3 types de temps de travail?",
+    a: "Temps plein temps partiel et sur appel."
+  },{
+    q: "Que signifie une semaine de travail comprimé ou réduite?",
+    a: "Ça permet aux employés d'allonger leurs journées de travail afin de réduire le nombre de jours travaillé."
+  },{
+    q: "Que signifie horaire variable ou flexible?",
+    a: "Ça permet à un employé de déterminer son heure d'arrivée et son heure de départ. Il peut aussi y avoir des horaires agiles que l'on définit comme étant des employés qui disposent de 1h à 3h de travail flexible par journée de travail."
+  },{
+    q: "Que signifie partage de poste?",
+    a: "Réduire les heures de travail avec un autre employé ça divise le temps de poste en 2 et ça attitre les heures aux 2 employés."
+  },{
+    q: "Que signifie la méthode ROWE (travail libéré de ces frontières spatio-temporelles)?",
+    a: "Ça peut signifier le télétravail on se concentre sur la performance."
+  },{
+    q: "Nomme Le court nom pour remplacer espace de travail partagé?",
+    a: "Coworking."
+  },{
+    q: "Que signifie bureau satellite?",
+    a: "C'est l'ouverture de bureau en banlieue pour éviter que les employés perdent du temps dans le trafic."
+  },{
+    q: "Que signifi TIC?",
+    a: "Technologie de l'information et de la communication, ça sert à encadré l'utilisation des outils numériques."
+  },{
+    q: "Que signifie le droit à la déconnexion?",
+    a: "Ne pas répondre au téléphone hors des heures de travail. FYI Au Québec nous n'avons aucune loi là-dessus mais en France eux ils en ont une."
+  },{
+    q: "Quels sont les enjeux du TIC?",
+    a: "1) télépression au travail 2) droit à la déconnexion 3) sécurité des données confidentielles."
+  },{
+    q: "Quelles sont les catégories de pratiques de conciliation vie professionnelle et vie personnelle?",
+    a: "1) les congés 2) l'aménagement du temps et du lieu de travail 3) le soutien à la famille (par exemple garderie en milieu de travail, camp de jour l'été et durant la semaine de relâche)."
+  },{
+    q: "Que signifi ''pratiques de conciliation vie ''?",
+    a: "Désignent l'ensemble des mesures et aménagements mis en place par une organisation pour aider ses salariés à équilibrer leurs responsabilités professionnelles et leurs obligations personnelles ou familiales."
+  },{
+    q: "Quels sont les éléments du succès de l'implantation des pratiques de conciliation vie professionnelle et vie personnelle?",
+    a: "1) Soutien du superviseur 2) accessibilité de ces pratiques 3) visibilité de ses pratiques au sein de l'organisation."
+  },{
+    q: "Qu’est-ce que le ‘’Smart-Work’’?",
+    a: "Pratique de travail caractérisée par une flexibilité spatiale et temporelle soutenue par des outils technologiques et qui procure à tous les employés de l'organisation les conditions pour accomplir leurs tâches. C'est également des investissements dans les TIC et reconfiguration des bureaux pour que les employés puissent avoir une meilleure balance emploi vie personnelle et donc utiliser les outils de technologie aussi et tout ça dans le but d'accomplir leurs tâches."
+  },{
+    q: "Qu’est-ce qui soumet la bureaucratie des services publics a une grande rigidité au niveau de l'organisation (que doit-on regarder concernant l’organisatoin des employés du secteur public)?",
+    a: "1) Sécurité d’emploi, 2) Syndicalisation étendue, 3) Réseau informatique sous-développé, 4) Pratiques standardisées (souvent centralisées)."
+  },{
+    q: "Vrai ou faux dans les milieux syndiqués un nouveau jugement récent permet à l'arbitre du grief d'exiger d'un employeur qu'il crée des postes supplémentaires afin de régler un problème de surcharge de travail?",
+    a: "Vrai."
+  },{
+    q: "Que signifi l’arbitre de grief?",
+    a: "L'arbitre de griefs est réservé au milieu syndiqué c'est une personne tierce neutre lorsque l'employeur et le syndicat ne réussissent pas à résoudre un désaccord sur l'application d'une convention collective ou sur l'interprétation."
+  },{
+    q: "Qui doit s'occuper de mettre en place et effectuer des temps de discussion pour répondre aux questions de représentants syndicaux et des employés?",
+    a: "Le personnel RH."
+  },{
+    q: "Dans une situation où un personnel des ressources humaines doit effectuez un temps de discussion pour répondre à des questions entre des représentants syndicaux et des employés à quoi est-ce que ces temps servent vraiment?",
+    a: "Permet à tous d'exprimer leurs besoins et rechercher conjointement un accord."
+  },{
+    q: "Nomme des exemples de sujets de discussion avec les syndicats?",
+    a: "1) L’automatisation de l’IA 2) L'automatisation des tâches 3) robotiques 4) la conciliation travail vie privée 5) utilisez des données personnelles des employés 6) mesures de surveillance électronique 7) respect de la vie privée."
+  },{
+    q: "Que signifi le mot grief?",
+    a: "Manière définitive de mésentante."
+  },{
+    q: "Qu’est-ce que l’expatriation traditionnelle?",
+    a: "Signifie de muter un employé une filiale étrangère pour une durée de 2 à 3 ans."
+  },{
+    q: "Quelles sont les formes d'expatriation?",
+    a: "1) l'expatriation traditionnelle 2) flexpatriation 3) commuting/migration alternante."
+  },{
+    q: "Que signifie la flexpatriation?",
+    a: "C'est une courte mission dans le but de faire des voyages d'affaires fréquents sans que l'employé s'installe dans l'autre pays."
+  },{
+    q: "Que signifie la migration alternante?",
+    a: "C'est une courte mission d'affectation d'une personne à l'étranger sur une base hebdomadaire ou bihebdomadaire sans déménagement."
+  },{
+    q: "Quelle est la différence entre la migration alternante et la flexpatriation?",
+    a: "Pour la migration alternante (commuting) c'est l'employé occupe un poste précis à l'étranger et suit un calendrier d'alternance fixe en voyageant 1x/2x par semaine entre les 2 pays alors que pour la flexpatriation l'employé conserve non seulement son poste au pays initial, mais aussi il ne se déplace que pour des missions ciblées selon les besoins de l'entreprise."
+  },{
+    q: "Quel est le synonyme du mot commuting?",
+    a: "Migration alternante."
+  },{
+    q: "Quel est l'avantage pour les entreprises d'opter pour l'expatriation ou la migration alternante?",
+    a: "Ça réduit les coûts associés à l'expatriation traditionnelle."
+  },{
+    q: "Quelles sont les différences qui séparent l'élargissement versus l'enrichissement des tâches?",
+    a: "L'enrichissement des tâches est constituée dans le but de favoriser la motivation des employés et leurs sentiments d'accomplissement en leur ajoutant une plus grande autonomie avec plus de responsabilités et une plus grande autorité tandis que l'élargissement des tâches ça permet seulement aux employés d'acquérir de nouvelles compétences du même niveau de complexité sans nouvelles responsabilités c'est juste d'intégrer des petites tâches additionnelles ou différente un même poste."
+  },{
+    q: "Que signifie l'élargissement des tâches?",
+    a: "1) intégrer des tâches additionnelles ou différentes à un même poste 2) change la monotonie et la routine 3) corrige la surcharge ou sous charge de travail 4) permet aux employés d'acquérir de nouvelles compétences de même niveau de complexité ou de responsabilité."
+  },{
+    q: "Que signifie enrichissement des tâches?",
+    a: "1) revoir la structure de travail pour ajouter une autonomie plus élevée plus de responsabilités et plus grande autorité 2 rangs travaillent plus stimulant offre des défis professionnels 3 favorisent la motivation des employés 4 sentiments d'accomplissement 5 on donne à l'employé des activités de niveau supérieur comme par exemple la gestion l'évaluation le contrôle de la qualité la participation au processus décisionnel."
+  },{
+    q: "Quelles sont les 2 stratégies d'implication des employés?",
+    a: "1) pratique d'implication consultative 2) pratique d'implication substantielle."
+  },{
+    q: "Quelles sont les pratiques d’implication consultatives?",
+    a: "1) Sollicite l'avis d'expert aucun pouvoir décisionnel direct ni autorité formelle 2) décision finale demeure sous le contrôle de la direction."
+  },{
+    q: "Quelles sont les pratiques d'implication substantielle?",
+    a: "1) Inclus le plus haut niveau d'autonomie décisionnel et de participation aux décisions 2) grande influence sur tous les aspects de citoyenneté organisationnelle."
+  },{
+    q: "Quelles sont les différences entre les groupes d'amélioration versus les équipes de travail semi-autonomes?",
+    a: "Les groupes d'amélioration ont peu d'autonomie décisionnelle et il conserve une structure hiérarchique traditionnelle, tandis que les équipes de travail semi-autonomes ont un niveau élevé d'autonomie et de pouvoir décisionnel important qui requiert alors plus de compétences administratives de haut niveau et plus de performances."
+  },{
+    q: "Qu'est-ce qu'un groupe d'amélioration?",
+    a: "1) relève des stratégies d'implication parallèles(cercle de qualité) et d'implication ponctuelle (groupe de résolution de problèmes) provenant des stratégies d'implication consultatives 2) ils analysent des problèmes ou proposent des idées mais le contrôle décisionnel final demeure à la direction."
+  },{
+    q: "Qu’est-ce qu’une équipe de travail semi-autonome?",
+    a: "1) pratique de stratégie d'implication substantielle comme l’implication continue (équipe de travail autonome) 2) ils bénéficient d'une intégration directe et permanente dans la prise de décision liée à leur travail."
+  },{
+    q: "Quels sont les éléments à inclure dans une politique de télétravail?",
+    a: "1) objectif de la politique (c'est quoi le but et est-ce temporaire ou non) 2) admissibilité et modalités d'application (poste admissible au télétravail quels sont les processus d'application pour ces postes en télétravail) 3) responsabilité envers le matériel informatique 4) santé et sécurité au travail(ergonomie et obligation de l'employeur) 5) sécurité des données informatiques 6) communication et encadrement (comment favoriser la communication et soutenir la performance à distance)."
+  },{
+    q: "Qu'est-ce qui différencie la fonction RH du service des RH?",
+    a: "La fonction RH c'est sur le terrain c'est la gestion et l'organisation quotidienne de la main d'œuvre tandis que service des RH c'est un soutien c'est l'équipe d'experts qui conçoit les structures adopte les politiques et conseille les gestionnaires pour réussir l'implantation des équipes."
+  },{
+    q: "Quels sont les avantages et désavantages de la méthode Kaizen (amélioration continue) approche Kaizen?",
+    a: "Avantages : parvient à concevoir des solutions plus efficaces et mieux adaptées on implique les employés il y a moins de pertes (temps/matières/énergie) les membres sont plus autonomes et c'est valorisant pour eux. Désavantages : Coûts, oui c'est un projet mais est-ce que ça veut dire que ce sera appliqué? Les employés doivent être motivés pour le faire et ça prend beaucoup de temps intensif qui pourrait causer des frictions."
+  },{
+    q: "Nomme des exemples de solutions pour contrer aux effets négatifs du télétravail?",
+    a: "- planifier des rencontres pour discuter de l'avancement des projets ou autres - planifier un temps de pause café et des 5 à 7 ou faire des concours hors sujet de travail - planifier des séances de coaching et discussion sur le sujet - recommander le mentorat entre employé - Créer des rencontres où les gens partagent leurs défis professionnels et converser - demander aux employés comment ils.se sentent et offrir des solutions au rendez-vous psy - organiser des meetings d'équipe."
+  },{
+    q: "GRH VS Fonction RH VS Service RH?",
+    a: "Selon Téluq: GRH désigne les activités de gestion visant à déterminer, à mobiliser et à développer les ressources humaines dans une organisation, alors que la fonction RH renvoie aux responsabilités d’encadrement, de direction et de supervision du personnel dans une organisation. Quant au service des RH, il désigne une structure administrative constituée d’un ensemble de spécialistes ou de professionnels RH."
+  },{
+    q: "Définition de Culture organisationnelle?",
+    a: "Ensemble de valeurs, de croyances et d’attentes partagées par le personnel d’une organisation et qui influence les attitudes et les comportements au travail."
+  },{
+    q: "Quel est le seul organisme québécois à décerner les titres de conseiller en ressources humaines (CRHA) et conseiller en relations industrielles (CRIA)?",
+    a: "L’Ordre des conseillers en ressources humaines agréés (OCRHA)."
+  },{
+    q: "Quelle est la définition de compétence?",
+    a: "Une compétence est un savoir-agir observable, complexe et développé tout au long de la vie, qui combine le savoir, le savoir-faire et le savoir-être dans un contexte donné, permettant à l’individu de passer de connaissant à exécutant, puis à compétent et performant."
+  },{
+    q: "Quelles sont les 12 compétences transversales essentielles à maîtriser?",
+    a: "Éthique, Agilité, Accompagnement, Sens des affaires, Vision globale, Influence, Gestion de projet, Analyse synthèse, Communication, Intelligence relationnelle, Littératie numérique, Apprentissage continue."
+  },{
+    q: "Quelles sont les 3 grandes familles de regroupement qui reprennent les champs d’expertise « traditionnels » de la profession?",
+    a: "1) SANTÉ ET RELATIONS ORGANISATIONNELLES, 2) GESTION INTÉGRÉE DU TALENT, 3) ÉVOLUTION STRATÉGIQUE DE L’ORGANISATION."
+  },{
+    q: "Que signifi ''Relations de travail''?",
+    a: "Établir, négocier et gérer des contrats et ententes de travail, individuels ou collectifs, en assurant le respect des lois concernées, et représenter une partie auprès des instances appropriées."
+  },{
+    q: "Que signifi ''dotation''?",
+    a: "Planifier les besoins en matière de ressources humaines à court, moyen et long termes et mettre en œuvre des stratégies permettant à l’organisation d’avoir la main-d’œuvre qualifiée nécessaire au bon moment. Élaborer des stratégies permettant le développement d’une marque employeur forte."
+  },{
+    q: "Qu'est-ce qui regroupe la catégorie de l'évolution stratégique de l'organisation?",
+    a: "1) Développement organisationnel, 2) Innovation, 3) Technologies."
+  },{
+    q: "Quels sont tous les types d'organisations/formes juridiques?",
+    a: "1) Incorporée familiale, 2) Institution publique ou parapublique, 3) Organisme sans but lucratif (OSBL ou OBNL), 4) Incorporée (cotée en Bourse), 5) Incorporée (non cotée en Bourse), 6) Coopérative, 7) Services-conseils."
+  },{
+    q: "Est-ce que l'automatisation et l'industrie 4.0 représentent le même concept?",
+    a: "Non, bien qu'elles soient étroitement liées; l'automatisation est un procédé technique, alors que l'industrie 4.0 désigne un modèle industriel et un écosystème global."
+  },{
+    q: "Quels sont les 2 titres de conseillers décernés par ORCHA?",
+    a: "CRHA (Conseiller en ressources humaines agréé) et CRIA (Conseiller en relations industrielles agréé)."
+  },{
+    q: "?",
+    a: "."
+  },
+
+];let cards = [...originalCards];
+const markedCards = new Set();
+
+function updateErrorCount() {
+  const count = markedCards.size;
+  document.getElementById('errorBadge').textContent = count;
+  document.getElementById('modalErrorCount').textContent = count;
+
+  const total = cards.length;
+  const successful = Math.max(0, total - count);
+  const percentage = total ? Math.round((successful / total) * 100) : 0;
+  document.getElementById('successPercent').textContent = percentage + ' %';
+  document.getElementById('successFill').style.width = percentage + '%';
+  document.querySelector('.success-track').setAttribute('aria-valuenow', percentage);
+  document.getElementById('successDetails').textContent =
+    `${count} carte${count === 1 ? '' : 's'} en rouge · ${successful} carte${successful === 1 ? '' : 's'} réussie${successful === 1 ? '' : 's'} sur ${total}`;
+}
+
+function createCardFace(item, isErrorList = false) {
+  const wrap = document.createElement('div');
+  if (isErrorList) {
+    wrap.className = 'error-card';
+    wrap.innerHTML = `<button class="unmark-btn" type="button" aria-label="Retirer cette carte des cartes d'erreurs" title="Remettre cette carte en normal"></button>
+      <strong>${escapeHtml(item.q)}</strong><div class="answer">${escapeHtml(item.a)}</div>`;
+    wrap.querySelector('.unmark-btn').addEventListener('click', (event) => {
+      event.stopPropagation();
+      markedCards.delete(item);
+      render();
+      renderErrorCards();
+    });
+    wrap.addEventListener('click', () => wrap.classList.toggle('flipped'));
+    return wrap;
+  }
+
+  wrap.className = 'card-wrap' + (markedCards.has(item) ? ' marked' : '');
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="face front">
+        <div>${escapeHtml(item.q)}</div>
+        <div class="hint">Clique pour voir la réponse 👆</div>
+      </div>
+      <div class="face back">
+        <div>${escapeHtml(item.a)}</div>
+        <div class="hint">Clique pour revenir à la question 👆</div>
+      </div>
+    </div>`;
+
+  const markBtn = document.createElement('button');
+  markBtn.className = 'mark-btn' + (markedCards.has(item) ? ' marked' : '');
+  markBtn.type = 'button';
+  markBtn.setAttribute('aria-label', markedCards.has(item) ? 'Retirer des cartes d’erreurs' : 'Marquer cette question comme erreur');
+  markBtn.title = markedCards.has(item) ? 'Carte marquée comme erreur' : 'Marquer comme erreur';
+  wrap.appendChild(markBtn);
+
+  markBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (markedCards.has(item)) markedCards.delete(item);
+    else markedCards.add(item);
+    render();
+    renderErrorCards();
+  });
+
+  wrap.addEventListener('click', () => {
+    wrap.querySelector('.card').classList.toggle('flipped');
+  });
+  return wrap;
+}
+
+function render() {
+  const container = document.getElementById('cards');
+  container.innerHTML = '';
+  document.getElementById('count').textContent = cards.length;
+  cards.forEach(item => container.appendChild(createCardFace(item)));
+  updateErrorCount();
+}
+
+function renderErrorCards() {
+  const container = document.getElementById('errorCardsList');
+  container.innerHTML = '';
+  const errorCards = cards.filter(item => markedCards.has(item));
+  document.getElementById('modalErrorCount').textContent = errorCards.length;
+  document.getElementById('errorBadge').textContent = errorCards.length;
+  if (errorCards.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-errors';
+    empty.textContent = 'Aucune carte en rouge pour le moment. Clique sur le point rouge d’une carte pour l’ajouter ici.';
+    container.appendChild(empty);
+    return;
+  }
+  errorCards.forEach(item => container.appendChild(createCardFace(item, true)));
+}
+
+const errorModalOverlay = document.getElementById('errorModalOverlay');
+document.getElementById('errorBubble').addEventListener('click', () => {
+  renderErrorCards();
+  errorModalOverlay.classList.add('open');
+});
+document.getElementById('closeErrorModal').addEventListener('click', () => errorModalOverlay.classList.remove('open'));
+errorModalOverlay.addEventListener('click', event => {
+  if (event.target === errorModalOverlay) errorModalOverlay.classList.remove('open');
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') errorModalOverlay.classList.remove('open');
+});
+
+function escapeHtml(value) {
+  return value
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
+}
+
+document.getElementById('shuffleBtn').addEventListener('click', () => {
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  render();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+
+render();
+</script>
+</body>
+</html>
